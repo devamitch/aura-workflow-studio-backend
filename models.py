@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from .database import Base
+from database import Base
 
 
 class User(Base):
@@ -24,10 +24,25 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    is_premium = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     workspaces = relationship("Workspace", back_populates="owner")
+    api_keys = relationship("UserAPIKey", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserAPIKey(Base):
+    __tablename__ = "user_api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    encrypted_key = Column(String, nullable=False)
+    provider = Column(String, nullable=False, default="openai") # e.g., 'openai', 'gemini', 'claude'
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="api_keys")
 
 
 class Workspace(Base):
@@ -69,7 +84,7 @@ class Document(Base):
     workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     source_type = Column(String, nullable=False, default="text")
-    metadata = Column(JSON, nullable=True)
+    meta = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     workspace = relationship("Workspace", back_populates="documents")
@@ -84,7 +99,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
     embedding = Column(JSON, nullable=False)  # List[float]
-    metadata = Column(JSON, nullable=True)
+    meta = Column("metadata", JSON, nullable=True)
 
     document = relationship("Document", back_populates="chunks")
 
@@ -104,4 +119,3 @@ class UsageLog(Base):
     tokens_out = Column(Integer, nullable=False, default=0)
     cost_estimate = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
